@@ -1,0 +1,34 @@
+
+# python3
+# ==============================================================================
+# Copyright 2020 Google LLC. This software is provided as-is, without warranty
+# or representation for any use or purpose. Your use of it is subject to your
+# agreement with Google.
+# ==============================================================================
+
+
+# hptuning_config.yaml
+trainingInput:
+  scaleTier: STANDARD-1 
+  hyperparameters:
+    goal: MAXIMIZE
+    maxTrials: 5
+    maxParallelTrials: 5
+    hyperparameterMetricTag: roc_auc
+    enableTrialEarlyStopping: TRUE
+    params:
+      - parameterName: max_depth
+        type: INTEGER
+        minValue: 3
+        maxValue: 8
+      - parameterName: n_estimators
+        type: INTEGER
+        minValue: 50
+        maxValue: 200
+      - parameterName: booster
+        type: CATEGORICAL
+        categoricalValues: [
+          "gbtree",
+          "gblinear",
+          "dart"
+        ]

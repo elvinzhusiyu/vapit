@@ -1,6 +1,6 @@
 tensorflow==2.3.1
 numpy==1.18.5
-pandas==1.0.4
+pandas==1.2.1
 scikit-learn==0.23.1
 google-api-python-client==1.9.3
 gcsfs==0.7.0
