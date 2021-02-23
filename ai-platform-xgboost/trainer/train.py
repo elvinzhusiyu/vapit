@@ -53,8 +53,6 @@ def train_xgboost(args):
         'num_class': args.no_classes,
         }
     xgb_model = XGBClassifier(**params, use_label_encoder=False)
-    print(x_train.shape)
-    print(y_train.shape)
     xgb_model.fit(x_train, y_train)
 
     # ---------------------------------------

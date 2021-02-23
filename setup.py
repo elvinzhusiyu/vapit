@@ -10,14 +10,6 @@
 from setuptools import find_packages
 from setuptools import setup
 
-#Runtime 2.2
-#REQUIRED_PACKAGES = ['tensorflow==2.3.1',
-#                     'pandas==1.0.4',
-#                     'scikit-learn==0.23.1',
-#                     'google-cloud-storage==1.29.0',
-#                     'cloudml-hypertune',
-#                     'pillow',
-#                    ]
 #Runtime 2.1
 REQUIRED_PACKAGES = ['tensorflow==2.1.0',
                      'pandas==0.25.3',

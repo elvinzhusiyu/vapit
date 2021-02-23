@@ -1,0 +1,138 @@
+name: Train
+inputs:
+- {name: project_id, type: String}
+- {name: user_name, type: String}
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: region, type: String}
+- {name: train_feature_path, type: String}
+- {name: train_label_path, type: String}
+- {name: val_feature_path, type: String}
+- {name: val_label_path, type: String}
+outputs:
+- {name: response, type: String}
+implementation:
+  container:
+    image: gcr.io/img-seg-3d/trainer:v1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def train(
+              project_id,
+              user_name,
+              bucket_name,
+              job_folder_name,
+              region,
+              train_feature_path,
+              train_label_path,
+              val_feature_path,
+              val_label_path,
+          ):
+          from collections import namedtuple
+          from datetime import datetime
+          from pytz import timezone
+          import subprocess
+
+          my_timezone = 'US/Pacific'
+
+          job_name = 'xgb_train_{}_{}_hpt'.format(
+              user_name,
+              datetime.now(timezone(my_timezone)).strftime("%m%d%y_%H%M")
+              )
+
+          job_dir = 'gs://{}/{}/jobdir'.format(
+              bucket_name,
+              job_folder_name,
+              )
+          package_path = "/pipelines/component/trainer"
+          job_config = "/pipelines/component/config/config_hpt.yaml"
+          print("JOB_NAME = ", job_name)
+          print("JOB_DIR = ", job_dir)
+          print("JOB_CONFIG = ", job_config)
+
+          response = subprocess.run([
+              "gcloud", "ai-platform", "jobs", "submit", "training",
+              job_name,
+              "--package-path", package_path,
+              "--module-name", "trainer.train_hpt",
+              "--python-version", "3.7",
+              "--runtime-version", "2.2",
+              "--job-dir", job_dir,
+              "--region", region,
+              "--config", job_config,
+              "--",
+              "--train_feature_name", train_feature_path,
+              "--train_label_name", train_label_path,
+              "--val_feature_name", val_feature_path,
+              "--val_label_name", val_label_path
+          ], stdout=subprocess.PIPE)
+
+          response = subprocess.run([
+              "gcloud", "ai-platform", "jobs", "describe", job_name,
+          ], stdout=subprocess.PIPE)
+
+          TrainOutput = namedtuple('TrainOutput',['response'])
+
+          return TrainOutput(response=response.stdout.decode())
+
+      def _serialize_str(str_value: str) -> str:
+          if not isinstance(str_value, str):
+              raise TypeError('Value "{}" has type "{}" instead of str.'.format(str(str_value), str(type(str_value))))
+          return str_value
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser.add_argument("--project-id", dest="project_id", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--user-name", dest="user_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-feature-path", dest="val_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-label-path", dest="val_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = train(**_parsed_args)
+
+      _output_serializers = [
+          _serialize_str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --project-id
+    - {inputValue: project_id}
+    - --user-name
+    - {inputValue: user_name}
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --region
+    - {inputValue: region}
+    - --train-feature-path
+    - {inputValue: train_feature_path}
+    - --train-label-path
+    - {inputValue: train_label_path}
+    - --val-feature-path
+    - {inputValue: val_feature_path}
+    - --val-label-path
+    - {inputValue: val_label_path}
+    - '----output-paths'
+    - {outputPath: response}
