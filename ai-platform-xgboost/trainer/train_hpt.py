@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_depth", type=int, help="Maximum depth of trees in xgboost")
     parser.add_argument("--booster", type=str, help="Type of booster")
     args = parser.parse_args()
-    print(args)
+
     xgb_model = train_xgboost(args)
     score = test_xgboost(xgb_model, args)
     
