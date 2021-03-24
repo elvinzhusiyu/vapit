@@ -1,5 +1,6 @@
 name: Train
 inputs:
+- {name: job_name, type: String}
 - {name: project_id, type: String}
 - {name: user_name, type: String}
 - {name: bucket_name, type: String}
@@ -23,6 +24,7 @@ implementation:
       python3 -u "$program_path" "$@"
     - |
       def train(
+              job_name,
               project_id,
               user_name,
               bucket_name,
@@ -34,16 +36,7 @@ implementation:
               val_label_path,
           ):
           from collections import namedtuple
-          from datetime import datetime
-          from pytz import timezone
           import subprocess
-
-          my_timezone = 'US/Pacific'
-
-          job_name = 'xgb_train_{}_{}_hpt'.format(
-              user_name,
-              datetime.now(timezone(my_timezone)).strftime("%m%d%y_%H%M")
-              )
 
           job_dir = 'gs://{}/{}/jobdir'.format(
               bucket_name,
@@ -87,6 +80,7 @@ implementation:
 
       import argparse
       _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--project-id", dest="project_id", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--user-name", dest="user_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
@@ -116,6 +110,8 @@ implementation:
           with open(output_file, 'w') as f:
               f.write(_output_serializers[idx](_outputs[idx]))
     args:
+    - --job-name
+    - {inputValue: job_name}
     - --project-id
     - {inputValue: project_id}
     - --user-name

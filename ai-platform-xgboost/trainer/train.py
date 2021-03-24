@@ -1,4 +1,5 @@
 
+
 # python3
 # ==============================================================================
 # Copyright 2020 Google LLC. This software is provided as-is, without warranty
@@ -59,7 +60,7 @@ def train_xgboost(args):
     # Save the model to local
     # ---------------------------------------
 
-    temp_name = 'model.bst'
+    temp_name = './model.bst'
     bst = xgb_model.get_booster()
     bst.save_model(temp_name)
     
@@ -67,8 +68,10 @@ def train_xgboost(args):
     # Move local model to gcs
     # ---------------------------------------
     
-    subprocess.check_call(['gsutil', 'cp', temp_name, os.path.join(args.job_dir, 'model.bst')],
-        stderr=sys.stdout)
+    target_path = os.path.join(args.job_dir, 'model.bst')
+    if temp_name != target_path:
+        subprocess.check_call(['gsutil', 'cp', temp_name, target_path],
+            stderr=sys.stdout)
 
     return xgb_model
     
