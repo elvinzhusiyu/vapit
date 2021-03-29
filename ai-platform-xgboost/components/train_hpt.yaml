@@ -1,4 +1,4 @@
-name: Train
+name: Hypertune
 inputs:
 - {name: job_name, type: String}
 - {name: bucket_name, type: String}
@@ -6,10 +6,9 @@ inputs:
 - {name: region, type: String}
 - {name: train_feature_path, type: String}
 - {name: train_label_path, type: String}
+- {name: val_feature_path, type: String}
+- {name: val_label_path, type: String}
 - {name: n_classes, type: Integer}
-- {name: n_estimators, type: Integer}
-- {name: max_depth, type: Integer}
-- {name: booster, type: String}
 - {name: config_yaml, type: String, optional: true}
 outputs:
 - {name: response, type: String}
@@ -25,17 +24,16 @@ implementation:
       printf "%s" "$0" > "$program_path"
       python3 -u "$program_path" "$@"
     - |
-      def train(
+      def hypertune(
               job_name,
               bucket_name,
               job_folder_name,
               region,
               train_feature_path,
               train_label_path,
+              val_feature_path,
+              val_label_path,
               n_classes,
-              n_estimators,
-              max_depth,
-              booster,
               config_yaml = None,
           ):
           from collections import namedtuple
@@ -47,40 +45,41 @@ implementation:
               job_folder_name,
               job_name,
               )
+          job_name = job_name + "_hpt"
           package_path = "/pipelines/component/trainer"
-          module_name = "trainer.train"
-          job_config = "/pipelines/component/config/config.yaml"
-          logging.info("JOB_NAME = {} ".format(job_name))
-          logging.info("JOB_DIR = {} ".format(job_dir))
-          logging.info("JOB_CONFIG = {} ".format(job_config))
+          module_name = "trainer.train_hpt"
+
+          job_config = "/pipelines/component/config/config_hpt.yaml"
           # if user input config yaml, then replace the default
           if config_yaml is not None:
               with open(job_config, 'w') as fout:
                   fout.write(config_yaml)
 
+          logging.info("JOB_NAME = {} ".format(job_name))
+          logging.info("JOB_DIR = {} ".format(job_dir))
+          logging.info("JOB_CONFIG = {} ".format(job_config))
+
           response = subprocess.run([
               "gcloud", "ai-platform", "jobs", "submit", "training",
               job_name,
-              "--job-dir", job_dir,
               "--package-path", package_path,
               "--module-name", module_name,
-              "--region", region,
               "--python-version", "3.7",
               "--runtime-version", "2.2",
+              "--job-dir", job_dir,
+              "--region", region,
               "--config", job_config,
               "--",
               "--train_feature_name", train_feature_path,
               "--train_label_name", train_label_path,
+              "--val_feature_name", val_feature_path,
+              "--val_label_name", val_label_path,
               "--no_classes", str(n_classes),
-              "--n_estimators", str(n_estimators),
-              "--max_depth", str(max_depth),
-              "--booster", booster,
-
-          ], stdout=subprocess.PIPE)
+              ], stdout=subprocess.PIPE)
 
           response = subprocess.run([
               "gcloud", "ai-platform", "jobs", "describe", job_name,
-          ], stdout=subprocess.PIPE)
+              ], stdout=subprocess.PIPE)
 
           TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
 
@@ -92,23 +91,22 @@ implementation:
           return str_value
 
       import argparse
-      _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser = argparse.ArgumentParser(prog='Hypertune', description='')
       _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-feature-path", dest="val_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-label-path", dest="val_label_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--n-classes", dest="n_classes", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-estimators", dest="n_estimators", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--max-depth", dest="max_depth", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--booster", dest="booster", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--config-yaml", dest="config_yaml", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
       _parsed_args = vars(_parser.parse_args())
       _output_files = _parsed_args.pop("_output_paths", [])
 
-      _outputs = train(**_parsed_args)
+      _outputs = hypertune(**_parsed_args)
 
       _output_serializers = [
           _serialize_str,
@@ -137,14 +135,12 @@ implementation:
     - {inputValue: train_feature_path}
     - --train-label-path
     - {inputValue: train_label_path}
+    - --val-feature-path
+    - {inputValue: val_feature_path}
+    - --val-label-path
+    - {inputValue: val_label_path}
     - --n-classes
     - {inputValue: n_classes}
-    - --n-estimators
-    - {inputValue: n_estimators}
-    - --max-depth
-    - {inputValue: max_depth}
-    - --booster
-    - {inputValue: booster}
     - if:
         cond: {isPresent: config_yaml}
         then:

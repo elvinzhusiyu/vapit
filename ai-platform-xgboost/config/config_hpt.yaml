@@ -12,7 +12,7 @@ trainingInput:
   scaleTier: STANDARD-1 
   hyperparameters:
     goal: MAXIMIZE
-    maxTrials: 50
+    maxTrials: 10
     maxParallelTrials: 5
     hyperparameterMetricTag: roc_auc
     enableTrialEarlyStopping: TRUE

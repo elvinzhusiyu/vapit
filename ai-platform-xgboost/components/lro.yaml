@@ -1,0 +1,71 @@
+name: Get job status
+inputs:
+- {name: response, type: String}
+- {name: job_name, type: String}
+- {name: time_out, type: Integer, default: '9000', optional: true}
+- {name: time_sleep, type: Integer, default: '60', optional: true}
+outputs:
+- {name: response, type: String}
+- {name: status, type: Boolean}
+implementation:
+  container:
+    image: gcr.io/deeplearning-platform-release/tf2-gpu.2-1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def get_job_status(\n        response,\n        job_name,\n        time_out\
+      \ = 9000, # timeout after 2.5 hours by default\n        time_sleep = 60, # check\
+      \ status every minute by default\n    ):\n    from collections import namedtuple\n\
+      \    import subprocess\n    import time\n    import yaml\n    import logging\n\
+      \n    time0 = time.time()\n    status = False\n    while time.time() - time0\
+      \ < time_out:\n        response = subprocess.run([\n            \"gcloud\",\
+      \ \"ai-platform\", \"jobs\", \"describe\", job_name,\n            ], stdout=subprocess.PIPE)\n\
+      \        response = response.stdout.decode()\n        response_dict = yaml.safe_load(response)\n\
+      \        if 'state' in response_dict and response_dict.get('state') == 'SUCCEEDED':\n\
+      \            status = True\n            break\n        else:\n            logging.info(\"\
+      Checking status ...\")\n            logging.info(response)\n            time.sleep(time_sleep)\n\
+      \    if not status:\n        raise TimeoutError(\"No successful job found. Timeout\
+      \ after {} seconds\".format(time_out))\n\n    LRO_Output = namedtuple('LRO_Output',['response',\
+      \ 'status'])\n    return LRO_Output(response=response, status=status)      \
+      \  \n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,\
+      \ str):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of str.'.format(str(str_value),\
+      \ str(type(str_value))))\n    return str_value\n\ndef _serialize_bool(bool_value:\
+      \ bool) -> str:\n    if isinstance(bool_value, str):\n        return bool_value\n\
+      \    if not isinstance(bool_value, bool):\n        raise TypeError('Value \"\
+      {}\" has type \"{}\" instead of bool.'.format(str(bool_value), str(type(bool_value))))\n\
+      \    return str(bool_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
+      \ job status', description='')\n_parser.add_argument(\"--response\", dest=\"\
+      response\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --job-name\", dest=\"job_name\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--time-out\", dest=\"time_out\", type=int, required=False,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--time-sleep\", dest=\"\
+      time_sleep\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      ----output-paths\", dest=\"_output_paths\", type=str, nargs=2)\n_parsed_args\
+      \ = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\"\
+      , [])\n\n_outputs = get_job_status(**_parsed_args)\n\n_output_serializers =\
+      \ [\n    _serialize_str,\n    _serialize_bool,\n\n]\n\nimport os\nfor idx, output_file\
+      \ in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n\
+      \    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n\
+      \        f.write(_output_serializers[idx](_outputs[idx]))\n"
+    args:
+    - --response
+    - {inputValue: response}
+    - --job-name
+    - {inputValue: job_name}
+    - if:
+        cond: {isPresent: time_out}
+        then:
+        - --time-out
+        - {inputValue: time_out}
+    - if:
+        cond: {isPresent: time_sleep}
+        then:
+        - --time-sleep
+        - {inputValue: time_sleep}
+    - '----output-paths'
+    - {outputPath: response}
+    - {outputPath: status}

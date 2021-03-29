@@ -1,0 +1,70 @@
+name: Get hyperparameter
+inputs:
+- {name: project_id, type: String}
+- {name: job_name, type: String}
+- {name: status, type: Boolean}
+outputs:
+- {name: booster, type: String}
+- {name: max_depth, type: Integer}
+- {name: n_estimators, type: Integer}
+implementation:
+  container:
+    image: gcr.io/deeplearning-platform-release/tf2-gpu.2-1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def get_hyperparameter(\n        project_id,\n        job_name, \n        status,\n\
+      \    ):\n    from googleapiclient import discovery\n    import json\n    import\
+      \ logging\n    import pandas as pd\n    from collections import namedtuple\n\
+      \n    # Define the project id and the job id and format it for the api request\n\
+      \    job_id = 'projects/{}/jobs/{}'.format(project_id, job_name)\n\n    # Build\
+      \ the service\n    ml = discovery.build('ml', 'v1', cache_discovery=False)\n\
+      \    # Execute the request and pass in the job id\n    request = ml.projects().jobs().get(name=job_id).execute()\n\
+      \    logging.info(json.dumps(request, indent=4))\n    # Print response\n   \
+      \ logging.info(json.dumps(request, indent=4))\n    trials = request['trainingOutput']['trials']\n\
+      \    trials = pd.DataFrame(trials)\n    trials['hyperparameters.booster'] =\
+      \ trials['hyperparameters'].apply(lambda x: x['booster'])\n    trials['hyperparameters.max_depth']\
+      \ = trials['hyperparameters'].apply(lambda x: x['max_depth'])\n    trials['hyperparameters.n_estimators']\
+      \ = trials['hyperparameters'].apply(lambda x: x['n_estimators'])\n    trials['finalMetric.trainingStep']\
+      \ = trials['finalMetric'].apply(lambda x: x['trainingStep'])\n    trials['finalMetric.objectiveValue']\
+      \ = trials['finalMetric'].apply(lambda x: x['objectiveValue'])\n    trials =\
+      \ trials.sort_values(['finalMetric.objectiveValue'], ascending=False)\n\n  \
+      \  booster=trials['hyperparameters'][0]['booster']\n    max_depth=trials['hyperparameters'][0]['max_depth']\n\
+      \    n_estimators=trials['hyperparameters'][0]['n_estimators']\n\n    Ghp_Output\
+      \ = namedtuple('Ghp_Output',['booster', 'max_depth', 'n_estimators'])\n    return\
+      \ Ghp_Output(booster=booster, max_depth=max_depth, n_estimators=n_estimators\
+      \ )  \n\ndef _deserialize_bool(s) -> bool:\n    from distutils.util import strtobool\n\
+      \    return strtobool(s) == 1\n\ndef _serialize_str(str_value: str) -> str:\n\
+      \    if not isinstance(str_value, str):\n        raise TypeError('Value \"{}\"\
+      \ has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
+      \    return str_value\n\ndef _serialize_int(int_value: int) -> str:\n    if\
+      \ isinstance(int_value, str):\n        return int_value\n    if not isinstance(int_value,\
+      \ int):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of int.'.format(str(int_value),\
+      \ str(type(int_value))))\n    return str(int_value)\n\nimport argparse\n_parser\
+      \ = argparse.ArgumentParser(prog='Get hyperparameter', description='')\n_parser.add_argument(\"\
+      --project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--job-name\", dest=\"job_name\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--status\", dest=\"status\"\
+      , type=_deserialize_bool, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      ----output-paths\", dest=\"_output_paths\", type=str, nargs=3)\n_parsed_args\
+      \ = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\"\
+      , [])\n\n_outputs = get_hyperparameter(**_parsed_args)\n\n_output_serializers\
+      \ = [\n    _serialize_str,\n    _serialize_int,\n    _serialize_int,\n\n]\n\n\
+      import os\nfor idx, output_file in enumerate(_output_files):\n    try:\n   \
+      \     os.makedirs(os.path.dirname(output_file))\n    except OSError:\n     \
+      \   pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+    args:
+    - --project-id
+    - {inputValue: project_id}
+    - --job-name
+    - {inputValue: job_name}
+    - --status
+    - {inputValue: status}
+    - '----output-paths'
+    - {outputPath: booster}
+    - {outputPath: max_depth}
+    - {outputPath: n_estimators}

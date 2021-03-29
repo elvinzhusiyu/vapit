@@ -51,13 +51,13 @@ implementation:
       \ 'y_train_name', 'y_test_name', 'n_classes'])\n    return PreprocessOutput(\n\
       \        x_train_name=x_train_name,\n        x_test_name=x_test_name,\n    \
       \    y_train_name=y_train_name,\n        y_test_name=y_test_name,\n        n_classes=n_classes,\n\
-      \    )\n\ndef _serialize_int(int_value: int) -> str:\n    if isinstance(int_value,\
-      \ str):\n        return int_value\n    if not isinstance(int_value, int):\n\
-      \        raise TypeError('Value \"{}\" has type \"{}\" instead of int.'.format(str(int_value),\
-      \ str(type(int_value))))\n    return str(int_value)\n\ndef _serialize_str(str_value:\
-      \ str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError('Value\
-      \ \"{}\" has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
-      \    return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Data\
+      \    )\n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,\
+      \ str):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of str.'.format(str(str_value),\
+      \ str(type(str_value))))\n    return str_value\n\ndef _serialize_int(int_value:\
+      \ int) -> str:\n    if isinstance(int_value, str):\n        return int_value\n\
+      \    if not isinstance(int_value, int):\n        raise TypeError('Value \"{}\"\
+      \ has type \"{}\" instead of int.'.format(str(int_value), str(type(int_value))))\n\
+      \    return str(int_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Data\
       \ preprocess', description='')\n_parser.add_argument(\"--bucket-name\", dest=\"\
       bucket_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --input-blob-name\", dest=\"input_blob_name\", type=str, required=True, default=argparse.SUPPRESS)\n\
