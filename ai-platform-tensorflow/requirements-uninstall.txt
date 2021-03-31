@@ -1,0 +1,11 @@
+tensorFlow
+numpy
+pandas
+scipy
+scikit-learn
+google-api-python-client
+gcsfs
+google-cloud
+google-cloud-storage
+matplotlib
+cloudml-hypertune
