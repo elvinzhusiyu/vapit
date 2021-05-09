@@ -1,0 +1,17 @@
+# python3
+# ==============================================================================
+# Copyright 2020 Google LLC. This software is provided as-is, without warranty
+# or representation for any use or purpose. Your use of it is subject to your
+# agreement with Google.
+# ==============================================================================
+
+#trainingInput:
+#  scaleTier: CUSTOM
+#  masterType: n1-highmem-8
+#  masterConfig:
+#    acceleratorConfig:
+#      count: 1
+#      type: NVIDIA_TESLA_T4
+
+trainingInput:
+  scaleTier: STANDARD-1

@@ -1,0 +1,112 @@
+name: Deploy
+inputs:
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: job_name, type: String}
+- {name: model_name, type: String}
+- {name: model_version, type: String}
+- {name: region, type: String}
+- {name: model_framework, type: String}
+- {name: model_description, type: String}
+- {name: status, type: Boolean}
+implementation:
+  container:
+    image: gcr.io/deeplearning-platform-release/tf2-gpu.2-1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def deploy(
+          bucket_name,
+          job_folder_name,
+          job_name,
+          model_name,
+          model_version,
+          region,
+          model_framework,
+          model_description,
+          status,
+          ):
+          from collections import namedtuple
+          import subprocess
+          import logging
+          import re
+
+          latest_model_dir = "gs://{}/{}/{}".format(bucket_name, job_folder_name, job_name)
+
+          # Check if model exists:
+          response = subprocess.run([
+                  "gcloud", "ai-platform", "models", "list",
+                  "--region", "global",
+              ], stdout=subprocess.PIPE)
+          response = response.stdout.decode().split("\n")[1:]
+          list_of_models = [re.sub(" +", " ", x).split(" ")[0] for x in response]
+
+          # create model if not exists
+          if not model_name in list_of_models:
+              # create model
+              response = subprocess.run([
+                  "gcloud", "ai-platform", "models", "create",
+                  model_name,
+                  "--region", region,
+                  "--enable-logging",
+              ], stdout=subprocess.PIPE)
+
+          # create model version
+          response = subprocess.run([
+              "gcloud","beta", "ai-platform", "versions", "create",
+              model_version,
+              "--model", model_name,
+              "--origin", latest_model_dir,
+              "--region", "global",
+              "--python-version", "3.7",
+              "--runtime-version", "2.2",
+              "--framework", model_framework,
+              "--description", model_description,
+          ], stdout=subprocess.PIPE)
+
+          DeployOutput = namedtuple('DeployOutput',['response'])
+
+          return DeployOutput(response=response.stdout.decode())
+
+      def _deserialize_bool(s) -> bool:
+          from distutils.util import strtobool
+          return strtobool(s) == 1
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Deploy', description='')
+      _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-name", dest="model_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-version", dest="model_version", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-framework", dest="model_framework", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-description", dest="model_description", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--status", dest="status", type=_deserialize_bool, required=True, default=argparse.SUPPRESS)
+      _parsed_args = vars(_parser.parse_args())
+
+      _outputs = deploy(**_parsed_args)
+    args:
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --job-name
+    - {inputValue: job_name}
+    - --model-name
+    - {inputValue: model_name}
+    - --model-version
+    - {inputValue: model_version}
+    - --region
+    - {inputValue: region}
+    - --model-framework
+    - {inputValue: model_framework}
+    - --model-description
+    - {inputValue: model_description}
+    - --status
+    - {inputValue: status}

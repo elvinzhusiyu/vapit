@@ -1,0 +1,173 @@
+name: Train
+inputs:
+- {name: job_name, type: String}
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: region, type: String}
+- {name: train_feature_path, type: String}
+- {name: train_label_path, type: String}
+- {name: val_feature_path, type: String}
+- {name: val_label_path, type: String}
+- {name: model_depth, type: Integer}
+- {name: dropout_rate, type: Float}
+- {name: learning_rate, type: Float}
+- {name: batch_size, type: Integer}
+- {name: epochs, type: Integer}
+- {name: config_yaml, type: String, optional: true}
+outputs:
+- {name: response, type: String}
+- {name: job_name, type: String}
+implementation:
+  container:
+    image: gcr.io/img-seg-3d/trainer:v1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def train(
+              job_name,
+              bucket_name,
+              job_folder_name,
+              region,
+              train_feature_path,
+              train_label_path,
+              val_feature_path,
+              val_label_path,
+              model_depth,
+              dropout_rate,
+              learning_rate,
+              batch_size,
+              epochs,
+              config_yaml = None,
+          ):
+          from collections import namedtuple
+          import subprocess
+          import logging
+
+          job_dir = 'gs://{}/{}/{}'.format(
+              bucket_name,
+              job_folder_name,
+              job_name,
+              )
+          package_path = "/pipelines/component/trainer"
+          module_name = "trainer.train"
+          job_config = "/pipelines/component/config/config.yaml"
+          logging.info("JOB_NAME = {} ".format(job_name))
+          logging.info("JOB_DIR = {} ".format(job_dir))
+          logging.info("JOB_CONFIG = {} ".format(job_config))
+          # if user input config yaml, then replace the default
+          if config_yaml is not None:
+              with open(job_config, 'w') as fout:
+                  fout.write(config_yaml)
+
+          response = subprocess.run([
+              "gcloud", "ai-platform", "jobs", "submit", "training",
+              job_name,
+              "--job-dir", job_dir,
+              "--package-path", package_path,
+              "--module-name", module_name,
+              "--region", region,
+              "--python-version", "3.7",
+              "--runtime-version", "2.2",
+              "--config", job_config,
+              "--",
+              "--train_feature_name", train_feature_path,
+              "--train_label_name", train_label_path,
+              "--val_feature_name", val_feature_path,
+              "--val_label_name", val_label_path,
+
+              "--model_depth", str(model_depth),
+              "--dropout_rate", str(dropout_rate),
+              "--learning_rate", str(learning_rate),
+              "--batch_size", str(batch_size),
+              "--epochs", str(epochs),
+          ], stdout=subprocess.PIPE)
+
+          response = subprocess.run([
+              "gcloud", "ai-platform", "jobs", "describe", job_name,
+          ], stdout=subprocess.PIPE)
+
+          TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
+
+          return TrainOutput(response=response.stdout.decode(), job_name=job_name)
+
+      def _serialize_str(str_value: str) -> str:
+          if not isinstance(str_value, str):
+              raise TypeError('Value "{}" has type "{}" instead of str.'.format(str(str_value), str(type(str_value))))
+          return str_value
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-feature-path", dest="val_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-label-path", dest="val_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--model-depth", dest="model_depth", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--dropout-rate", dest="dropout_rate", type=float, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--learning-rate", dest="learning_rate", type=float, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--batch-size", dest="batch_size", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--epochs", dest="epochs", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--config-yaml", dest="config_yaml", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = train(**_parsed_args)
+
+      _output_serializers = [
+          _serialize_str,
+          _serialize_str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --job-name
+    - {inputValue: job_name}
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --region
+    - {inputValue: region}
+    - --train-feature-path
+    - {inputValue: train_feature_path}
+    - --train-label-path
+    - {inputValue: train_label_path}
+    - --val-feature-path
+    - {inputValue: val_feature_path}
+    - --val-label-path
+    - {inputValue: val_label_path}
+    - --model-depth
+    - {inputValue: model_depth}
+    - --dropout-rate
+    - {inputValue: dropout_rate}
+    - --learning-rate
+    - {inputValue: learning_rate}
+    - --batch-size
+    - {inputValue: batch_size}
+    - --epochs
+    - {inputValue: epochs}
+    - if:
+        cond: {isPresent: config_yaml}
+        then:
+        - --config-yaml
+        - {inputValue: config_yaml}
+    - '----output-paths'
+    - {outputPath: response}
+    - {outputPath: job_name}

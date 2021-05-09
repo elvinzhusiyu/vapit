@@ -1,0 +1,101 @@
+name: Hypertune
+inputs:
+- {name: job_name, type: String}
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: region, type: String}
+- {name: train_feature_path, type: String}
+- {name: train_label_path, type: String}
+- {name: val_feature_path, type: String}
+- {name: val_label_path, type: String}
+- {name: epochs, type: Integer}
+- {name: config_yaml, type: String, optional: true}
+outputs:
+- {name: response, type: String}
+- {name: job_name, type: String}
+implementation:
+  container:
+    image: gcr.io/img-seg-3d/trainer-tensorflow:v1
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - "def hypertune(\n        job_name,\n        bucket_name,\n        job_folder_name,\n\
+      \        region,\n        train_feature_path,\n        train_label_path,\n \
+      \       val_feature_path,\n        val_label_path,\n        epochs,\n      \
+      \  config_yaml = None,\n    ):\n    from collections import namedtuple\n   \
+      \ import subprocess\n    import logging\n\n    job_dir = 'gs://{}/{}/{}'.format(\n\
+      \        bucket_name,\n        job_folder_name,\n        job_name,\n       \
+      \ )\n    job_name = job_name + \"_hpt\"\n    package_path = \"/pipelines/component/trainer\"\
+      \n    module_name = \"trainer.train_hpt\"\n\n    job_config = \"/pipelines/component/config/config_hpt.yaml\"\
+      \n    # if user input config yaml, then replace the default\n    if config_yaml\
+      \ is not None:\n        with open(job_config, 'w') as fout:\n            fout.write(config_yaml)\n\
+      \n    logging.info(\"JOB_NAME = {} \".format(job_name))\n    logging.info(\"\
+      JOB_DIR = {} \".format(job_dir))\n    logging.info(\"JOB_CONFIG = {} \".format(job_config))\n\
+      \n    response = subprocess.run([\n        \"gcloud\", \"ai-platform\", \"jobs\"\
+      , \"submit\", \"training\",\n        job_name,\n        \"--package-path\",\
+      \ package_path,\n        \"--module-name\", module_name,\n        \"--python-version\"\
+      , \"3.7\",\n        \"--runtime-version\", \"2.2\",\n        \"--job-dir\",\
+      \ job_dir,\n        \"--region\", region,\n        \"--config\", job_config,\n\
+      \        \"--\",\n        \"--train_feature_name\", train_feature_path,\n  \
+      \      \"--train_label_name\", train_label_path,\n        \"--val_feature_name\"\
+      , val_feature_path,\n        \"--val_label_name\", val_label_path,\n       \
+      \ \"--epochs\", str(epochs),\n        ], stdout=subprocess.PIPE)   \n\n    response\
+      \ = subprocess.run([\n        \"gcloud\", \"ai-platform\", \"jobs\", \"describe\"\
+      , job_name,\n        ], stdout=subprocess.PIPE)\n\n    TrainOutput = namedtuple('TrainOutput',['response',\
+      \ 'job_name'])\n\n    return TrainOutput(response=response.stdout.decode(),\
+      \ job_name=job_name)\n\ndef _serialize_str(str_value: str) -> str:\n    if not\
+      \ isinstance(str_value, str):\n        raise TypeError('Value \"{}\" has type\
+      \ \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n  \
+      \  return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Hypertune',\
+      \ description='')\n_parser.add_argument(\"--job-name\", dest=\"job_name\", type=str,\
+      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--bucket-name\"\
+      , dest=\"bucket_name\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--job-folder-name\", dest=\"job_folder_name\", type=str,\
+      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--region\"\
+      , dest=\"region\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --train-feature-path\", dest=\"train_feature_path\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--train-label-path\", dest=\"\
+      train_label_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --val-feature-path\", dest=\"val_feature_path\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--val-label-path\", dest=\"val_label_path\", type=str,\
+      \ required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--epochs\"\
+      , dest=\"epochs\", type=int, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --config-yaml\", dest=\"config_yaml\", type=str, required=False, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str,\
+      \ nargs=2)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"\
+      _output_paths\", [])\n\n_outputs = hypertune(**_parsed_args)\n\n_output_serializers\
+      \ = [\n    _serialize_str,\n    _serialize_str,\n\n]\n\nimport os\nfor idx,\
+      \ output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n\
+      \    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n\
+      \        f.write(_output_serializers[idx](_outputs[idx]))\n"
+    args:
+    - --job-name
+    - {inputValue: job_name}
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --region
+    - {inputValue: region}
+    - --train-feature-path
+    - {inputValue: train_feature_path}
+    - --train-label-path
+    - {inputValue: train_label_path}
+    - --val-feature-path
+    - {inputValue: val_feature_path}
+    - --val-label-path
+    - {inputValue: val_label_path}
+    - --epochs
+    - {inputValue: epochs}
+    - if:
+        cond: {isPresent: config_yaml}
+        then:
+        - --config-yaml
+        - {inputValue: config_yaml}
+    - '----output-paths'
+    - {outputPath: response}
+    - {outputPath: job_name}

@@ -35,7 +35,8 @@ def data_preprocess(
     2. Convert categorical into one-hot encodings;
     3. Count number of unique classes;
     4. Split train/test
-    5. Save process data into gcs
+    5. Remove na with zeros
+    6. Save process data into gcs
     
     Args:
         input_file: string, input file gcs path
@@ -82,6 +83,10 @@ def data_preprocess(
         stratify=dataset[target_column], 
         )
 
+    # Fill Nan value with zeros
+    x_train = x_train.fillna(0)
+    x_test = x_test.fillna(0)
+    
     logging.info("Get feature/label shapes ...")
     logging.info("x_train shape = {}".format(x_train.shape))
     logging.info("x_test shape = {}".format(x_test.shape))
@@ -90,14 +95,17 @@ def data_preprocess(
 
     x_train.to_csv(x_train_name, index=False)
     x_test.to_csv(x_test_name, index=False)
-    y_train.to_csv(y_train_name, index=False)
-    y_test.to_csv(y_test_name, index=False)
+
+    # The preprocessing for label column is different 
+    # between tensorflow and XGBoost models
+    pd.get_dummies(y_train).to_csv(y_train_name, index=False, header=None)
+    pd.get_dummies(y_test).to_csv(y_test_name, index=False, header=None)
     
     # Saving data
     logging.info("Saving data ...")
     logging.info("x_train saved to {}".format(x_train_name))
-    logging.info("x_test saved to {}".format(x_test_name))
     logging.info("y_train saved to {}".format(y_train_name))
+    logging.info("x_test saved to {}".format(x_test_name))
     logging.info("y_test saved to {}".format(y_test_name))
     logging.info("finished")
     return n_classes

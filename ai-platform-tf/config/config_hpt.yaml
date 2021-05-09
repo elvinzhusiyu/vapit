@@ -1,0 +1,39 @@
+
+# python3
+# ==============================================================================
+# Copyright 2020 Google LLC. This software is provided as-is, without warranty
+# or representation for any use or purpose. Your use of it is subject to your
+# agreement with Google.
+# ==============================================================================
+
+
+# hptuning_config.yaml
+trainingInput:
+  scaleTier: STANDARD-1
+  hyperparameters:
+    goal: MAXIMIZE
+    hyperparameterMetricTag: accuracy
+    maxTrials: 5
+    maxParallelTrials: 2
+    enableTrialEarlyStopping: True
+    params:
+    - parameterName: model_depth
+      type: INTEGER
+      minValue: 2
+      maxValue: 10
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: dropout_rate
+      type: DOUBLE
+      minValue: 0.001
+      maxValue: 0.01
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: learning_rate
+      type: DOUBLE
+      minValue: 0.00001
+      maxValue: 0.01
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: batch_size
+      type: INTEGER
+      minValue: 1
+      maxValue: 10
+      scaleType: UNIT_LINEAR_SCALE
