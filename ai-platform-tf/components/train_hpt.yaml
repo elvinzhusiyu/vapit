@@ -15,7 +15,7 @@ outputs:
 - {name: job_name, type: String}
 implementation:
   container:
-    image: gcr.io/img-seg-3d/trainer-tensorflow:v1
+    image: gcr.io/img-seg-3d/trainer-tf:v1
     command:
     - sh
     - -ec
@@ -41,12 +41,12 @@ implementation:
       , \"3.7\",\n        \"--runtime-version\", \"2.2\",\n        \"--job-dir\",\
       \ job_dir,\n        \"--region\", region,\n        \"--config\", job_config,\n\
       \        \"--\",\n        \"--train_feature_name\", train_feature_path,\n  \
-      \      \"--train_label_name\", train_label_path,\n        \"--val_feature_name\"\
-      , val_feature_path,\n        \"--val_label_name\", val_label_path,\n       \
-      \ \"--epochs\", str(epochs),\n        ], stdout=subprocess.PIPE)   \n\n    response\
-      \ = subprocess.run([\n        \"gcloud\", \"ai-platform\", \"jobs\", \"describe\"\
-      , job_name,\n        ], stdout=subprocess.PIPE)\n\n    TrainOutput = namedtuple('TrainOutput',['response',\
-      \ 'job_name'])\n\n    return TrainOutput(response=response.stdout.decode(),\
+      \      \"--train_label_name\", train_label_path,\n        \"--test_feature_name\"\
+      , val_feature_path,\n        \"--test_label_name\", val_label_path,\n      \
+      \  \"--epochs\", str(epochs),\n        ], stdout=subprocess.PIPE)   \n\n   \
+      \ response = subprocess.run([\n        \"gcloud\", \"ai-platform\", \"jobs\"\
+      , \"describe\", job_name,\n        ], stdout=subprocess.PIPE)\n\n    TrainOutput\
+      \ = namedtuple('TrainOutput',['response', 'job_name'])\n\n    return TrainOutput(response=response.stdout.decode(),\
       \ job_name=job_name)\n\ndef _serialize_str(str_value: str) -> str:\n    if not\
       \ isinstance(str_value, str):\n        raise TypeError('Value \"{}\" has type\
       \ \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n  \

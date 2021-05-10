@@ -1,6 +1,6 @@
 #!/bin/bash -e
 project_name=img-seg-3d
-component_name=trainer-tensorflow
+component_name=trainer-tf
 image_name=gcr.io/${project_name}/${component_name} 
 image_tag=v1
 full_image_name=${image_name}:${image_tag}

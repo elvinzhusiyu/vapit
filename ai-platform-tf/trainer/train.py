@@ -138,7 +138,7 @@ if __name__ == "__main__":
     hist = model.fit(np.array(x_train), np.array(y_train), 
                          epochs=args.epochs,
                          batch_size=args.batch_size,
-                         validation_data=[np.array(x_test),y_test],
+                         validation_data=(np.array(x_test),y_test),
                          callbacks=callbacks)
 
     # TBD save history for visualization

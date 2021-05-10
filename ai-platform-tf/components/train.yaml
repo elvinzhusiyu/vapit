@@ -19,7 +19,7 @@ outputs:
 - {name: job_name, type: String}
 implementation:
   container:
-    image: gcr.io/img-seg-3d/trainer:v1
+    image: gcr.io/img-seg-3d/trainer-tf@sha256:9565ad78f43f05b69fb6afe86b43f61627b76407f998b7de00ada6b886cb05d8
     command:
     - sh
     - -ec
@@ -77,9 +77,8 @@ implementation:
               "--",
               "--train_feature_name", train_feature_path,
               "--train_label_name", train_label_path,
-              "--val_feature_name", val_feature_path,
-              "--val_label_name", val_label_path,
-
+              "--test_feature_name", val_feature_path,
+              "--test_label_name", val_label_path,
               "--model_depth", str(model_depth),
               "--dropout_rate", str(dropout_rate),
               "--learning_rate", str(learning_rate),
