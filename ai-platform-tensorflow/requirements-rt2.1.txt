@@ -1,0 +1,12 @@
+tensorflow==2.1.0
+numpy==1.18.0
+pandas==0.25.3
+scipy==1.4.1
+scikit-learn==0.22
+google-api-python-client==1.7.11
+gcsfs==0.6.1
+google-cloud==0.34.0
+google-cloud-storage==1.23.0
+matplotlib==3.2.1
+google-cloud-datastore==1.10.0
+cloudml-hypertune
