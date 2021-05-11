@@ -37,13 +37,13 @@ implementation:
       \    n_estimators=trials['hyperparameters'][0]['n_estimators']\n\n    Ghp_Output\
       \ = namedtuple('Ghp_Output',['booster', 'max_depth', 'n_estimators'])\n    return\
       \ Ghp_Output(booster=booster, max_depth=max_depth, n_estimators=n_estimators\
-      \ )  \n\ndef _deserialize_bool(s) -> bool:\n    from distutils.util import strtobool\n\
-      \    return strtobool(s) == 1\n\ndef _serialize_str(str_value: str) -> str:\n\
-      \    if not isinstance(str_value, str):\n        raise TypeError('Value \"{}\"\
-      \ has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
-      \    return str_value\n\ndef _serialize_int(int_value: int) -> str:\n    if\
-      \ isinstance(int_value, str):\n        return int_value\n    if not isinstance(int_value,\
-      \ int):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of int.'.format(str(int_value),\
+      \ )  \n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,\
+      \ str):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of str.'.format(str(str_value),\
+      \ str(type(str_value))))\n    return str_value\n\ndef _deserialize_bool(s) ->\
+      \ bool:\n    from distutils.util import strtobool\n    return strtobool(s) ==\
+      \ 1\n\ndef _serialize_int(int_value: int) -> str:\n    if isinstance(int_value,\
+      \ str):\n        return int_value\n    if not isinstance(int_value, int):\n\
+      \        raise TypeError('Value \"{}\" has type \"{}\" instead of int.'.format(str(int_value),\
       \ str(type(int_value))))\n    return str(int_value)\n\nimport argparse\n_parser\
       \ = argparse.ArgumentParser(prog='Get hyperparameter', description='')\n_parser.add_argument(\"\
       --project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n\

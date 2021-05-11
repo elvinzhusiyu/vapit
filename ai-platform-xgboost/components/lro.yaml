@@ -31,13 +31,13 @@ implementation:
       \    if not status:\n        raise TimeoutError(\"No successful job found. Timeout\
       \ after {} seconds\".format(time_out))\n\n    LRO_Output = namedtuple('LRO_Output',['response',\
       \ 'status'])\n    return LRO_Output(response=response, status=status)      \
-      \  \n\ndef _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,\
-      \ str):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of str.'.format(str(str_value),\
-      \ str(type(str_value))))\n    return str_value\n\ndef _serialize_bool(bool_value:\
-      \ bool) -> str:\n    if isinstance(bool_value, str):\n        return bool_value\n\
-      \    if not isinstance(bool_value, bool):\n        raise TypeError('Value \"\
-      {}\" has type \"{}\" instead of bool.'.format(str(bool_value), str(type(bool_value))))\n\
-      \    return str(bool_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
+      \  \n\ndef _serialize_bool(bool_value: bool) -> str:\n    if isinstance(bool_value,\
+      \ str):\n        return bool_value\n    if not isinstance(bool_value, bool):\n\
+      \        raise TypeError('Value \"{}\" has type \"{}\" instead of bool.'.format(str(bool_value),\
+      \ str(type(bool_value))))\n    return str(bool_value)\n\ndef _serialize_str(str_value:\
+      \ str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError('Value\
+      \ \"{}\" has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
+      \    return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
       \ job status', description='')\n_parser.add_argument(\"--response\", dest=\"\
       response\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --job-name\", dest=\"job_name\", type=str, required=True, default=argparse.SUPPRESS)\n\

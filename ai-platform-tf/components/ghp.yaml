@@ -39,12 +39,12 @@ implementation:
       \    learning_rate=trials['hyperparameters'][0]['learning_rate']\n    batch_size=trials['hyperparameters'][0]['batch_size']\n\
       \n    Ghp_Output = namedtuple('Ghp_Output',['model_depth', 'dropout_rate', 'learning_rate',\
       \ 'batch_size'])\n    return Ghp_Output(model_depth=model_depth, dropout_rate=dropout_rate,\
-      \ learning_rate=learning_rate, batch_size=batch_size )  \n\ndef _deserialize_bool(s)\
-      \ -> bool:\n    from distutils.util import strtobool\n    return strtobool(s)\
-      \ == 1\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value,\
-      \ str):\n        return float_value\n    if not isinstance(float_value, (float,\
-      \ int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(str(float_value),\
-      \ str(type(float_value))))\n    return str(float_value)\n\ndef _serialize_int(int_value:\
+      \ learning_rate=learning_rate, batch_size=batch_size )  \n\ndef _serialize_float(float_value:\
+      \ float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n\
+      \    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value\
+      \ \"{}\" has type \"{}\" instead of float.'.format(str(float_value), str(type(float_value))))\n\
+      \    return str(float_value)\n\ndef _deserialize_bool(s) -> bool:\n    from\
+      \ distutils.util import strtobool\n    return strtobool(s) == 1\n\ndef _serialize_int(int_value:\
       \ int) -> str:\n    if isinstance(int_value, str):\n        return int_value\n\
       \    if not isinstance(int_value, int):\n        raise TypeError('Value \"{}\"\
       \ has type \"{}\" instead of int.'.format(str(int_value), str(type(int_value))))\n\

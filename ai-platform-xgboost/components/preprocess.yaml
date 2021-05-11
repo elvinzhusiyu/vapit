@@ -22,13 +22,12 @@ implementation:
     - "def data_preprocess(\n    bucket_name,\n    input_file,\n    target_column,\n\
       \    ):\n\n    from collections import namedtuple\n    from sklearn.model_selection\
       \ import train_test_split\n    import pandas as pd\n    import os\n    import\
-      \ logging\n\n#     input_file = 'gs://{}/{}'.format(\n#         bucket_name,\
-      \ \n#         input_blob_name, \n#         )\n    logging.info(\"Loading {}\"\
-      .format(input_file))\n    dataset = pd.read_csv(input_file)\n    # drop unique\
-      \ id column which is not useful for ML\n    dataset.drop(['LOAN_SEQUENCE_NUMBER'],\
-      \ axis=1, inplace=True)\n\n    # Convert categorical columns into one-hot encodings\n\
-      \    str_cols = [col for col in dataset.columns if dataset[col].dtype == 'object']\n\
-      \    dataset = pd.get_dummies(dataset, columns=str_cols)\n    n_classes = dataset[target_column].nunique()\n\
+      \ logging\n\n    logging.info(\"Loading {}\".format(input_file))\n    dataset\
+      \ = pd.read_csv(input_file)\n    # drop unique id column which is not useful\
+      \ for ML\n    dataset.drop(['LOAN_SEQUENCE_NUMBER'], axis=1, inplace=True)\n\
+      \n    # Convert categorical columns into one-hot encodings\n    str_cols = [col\
+      \ for col in dataset.columns if dataset[col].dtype == 'object']\n    dataset\
+      \ = pd.get_dummies(dataset, columns=str_cols)\n    n_classes = dataset[target_column].nunique()\n\
       \    logging.info(\"No. of Classes: {}\".format(n_classes))\n\n    # Split with\
       \ a small test size so as to allow our model to train on more data\n    x_train,\
       \ x_test, y_train, y_test = train_test_split(\n        dataset.drop(target_column,\
@@ -42,11 +41,11 @@ implementation:
       \ = \"{}_x_train{}\".format(base_name, ext_name)\n    x_test_name = \"{}_x_test{}\"\
       .format(base_name, ext_name)\n    y_train_name = \"{}_y_train{}\".format(base_name,\
       \ ext_name)\n    y_test_name = \"{}_y_test{}\".format(base_name, ext_name)\n\
-      \n    x_train_name = os.path.join(\"gs://\", bucket_name, \"data_split\", x_train_name)\n\
-      \    x_test_name = os.path.join(\"gs://\", bucket_name, \"data_split\", x_test_name)\n\
-      \    y_train_name = os.path.join(\"gs://\", bucket_name, \"data_split\", y_train_name)\n\
-      \    y_test_name = os.path.join(\"gs://\", bucket_name, \"data_split\", y_test_name)\n\
-      \n    x_train.to_csv(x_train_name, index=False)\n    x_test.to_csv(x_test_name,\
+      \n    x_train_name = os.path.join(\"gs://\", bucket_name, \"data_split_xgb\"\
+      , x_train_name)\n    x_test_name = os.path.join(\"gs://\", bucket_name, \"data_split_xgb\"\
+      , x_test_name)\n    y_train_name = os.path.join(\"gs://\", bucket_name, \"data_split_xgb\"\
+      , y_train_name)\n    y_test_name = os.path.join(\"gs://\", bucket_name, \"data_split_xgb\"\
+      , y_test_name)\n\n    x_train.to_csv(x_train_name, index=False)\n    x_test.to_csv(x_test_name,\
       \ index=False)\n    y_train.to_csv(y_train_name, index=False)\n    y_test.to_csv(y_test_name,\
       \ index=False)\n\n    logging.info(\"x_train saved to {}\".format(x_train_name))\n\
       \    logging.info(\"x_test saved to {}\".format(x_test_name))\n    logging.info(\"\
