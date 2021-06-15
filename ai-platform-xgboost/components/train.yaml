@@ -99,7 +99,7 @@ implementation:
                   ]
               },
           }
-          parent = f"projects/{project_id}/locations/{regino}"
+          parent = f"projects/{project_id}/locations/{region}"
           response = client.create_custom_job(parent=parent, custom_job=custom_job)
           logging.info(f"response: {response}")
           training_job_id = response.name.split('/')[-1]
