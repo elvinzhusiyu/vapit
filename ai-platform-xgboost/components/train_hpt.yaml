@@ -55,6 +55,7 @@ implementation:
               machine_type = "n1-standard-4",
           ):
           from collections import namedtuple
+          from google.cloud import aiplatform
           import subprocess
           import logging
 
