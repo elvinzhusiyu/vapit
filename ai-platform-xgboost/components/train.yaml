@@ -1,36 +1,29 @@
-# Copyright 2021 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     https://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 name: Train
 inputs:
+- {name: project_id, type: String}
+- {name: region, type: String}
 - {name: job_name, type: String}
 - {name: bucket_name, type: String}
 - {name: job_folder_name, type: String}
-- {name: region, type: String}
 - {name: train_feature_path, type: String}
 - {name: train_label_path, type: String}
 - {name: n_classes, type: Integer}
 - {name: n_estimators, type: Integer}
 - {name: max_depth, type: Integer}
 - {name: booster, type: String}
-- {name: config_yaml, type: String, optional: true}
+- {name: package_uri, type: String}
+- {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+  optional: true}
+- {name: python_module, type: String, default: trainer.train, optional: true}
+- {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
+  optional: true}
+- {name: machine_type, type: String, default: n1-standard-4, optional: true}
 outputs:
 - {name: response, type: String}
 - {name: job_name, type: String}
 implementation:
   container:
-    image: gcr.io/img-seg-3d/trainer:v1
+    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
     command:
     - sh
     - -ec
@@ -40,20 +33,26 @@ implementation:
       python3 -u "$program_path" "$@"
     - |
       def train(
+              project_id,
+              region,
               job_name,
               bucket_name,
               job_folder_name,
-              region,
               train_feature_path,
               train_label_path,
               n_classes,
               n_estimators,
               max_depth,
               booster,
-              config_yaml = None,
+              package_uri,
+              executor_image_uri = 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+              python_module = "trainer.train",
+              api_endpoint = "us-central1-aiplatform.googleapis.com",
+              machine_type = "n1-standard-4",
           ):
+
           from collections import namedtuple
-          import subprocess
+          from google.cloud import aiplatform
           import logging
 
           job_dir = 'gs://{}/{}/{}'.format(
@@ -61,44 +60,53 @@ implementation:
               job_folder_name,
               job_name,
               )
-          package_path = "/pipelines/component/trainer"
-          module_name = "trainer.train"
-          job_config = "/pipelines/component/config/config.yaml"
-          logging.info("JOB_NAME = {} ".format(job_name))
-          logging.info("JOB_DIR = {} ".format(job_dir))
-          logging.info("JOB_CONFIG = {} ".format(job_config))
-          # if user input config yaml, then replace the default
-          if config_yaml is not None:
-              with open(job_config, 'w') as fout:
-                  fout.write(config_yaml)
 
-          response = subprocess.run([
-              "gcloud", "ai-platform", "jobs", "submit", "training",
-              job_name,
-              "--job-dir", job_dir,
-              "--package-path", package_path,
-              "--module-name", module_name,
-              "--region", region,
-              "--python-version", "3.7",
-              "--runtime-version", "2.2",
-              "--config", job_config,
-              "--",
-              "--train_feature_name", train_feature_path,
-              "--train_label_name", train_label_path,
-              "--no_classes", str(n_classes),
-              "--n_estimators", str(n_estimators),
-              "--max_depth", str(max_depth),
-              "--booster", booster,
-
-          ], stdout=subprocess.PIPE)
-
-          response = subprocess.run([
-              "gcloud", "ai-platform", "jobs", "describe", job_name,
-          ], stdout=subprocess.PIPE)
+          # The AI Platform services require regional API endpoints.
+          client_options = {"api_endpoint": api_endpoint}
+          # Initialize client that will be used to create and send requests.
+          # This client only needs to be created once, and can be reused for multiple requests.
+          client = aiplatform.gapic.JobServiceClient(client_options=client_options)
+          custom_job = {
+              "display_name": job_name,
+              "job_spec": {
+                  "worker_pool_specs": [
+                      {
+                          "machine_spec": {
+                              "machine_type": machine_type,
+                          },
+                          "replica_count": 1,
+                          "python_package_spec": {
+                              "executor_image_uri": executor_image_uri,
+                              "package_uris": [package_uri],
+                              "python_module": python_module,
+                              "args": [
+                                '--job-dir',
+                                job_dir,
+                                '--train_feature_name',
+                                train_feature_path,
+                                '--train_label_name',
+                                train_label_path,
+                                '--no_classes',
+                                n_classes,
+                                '--n_estimators',
+                                n_estimators,
+                                '--max_depth',
+                                max_depth,
+                                '--booster',
+                                booster
+                              ],
+                          },
+                      }
+                  ]
+              },
+          }
+          parent = f"projects/{project_id}/locations/{regino}"
+          response = client.create_custom_job(parent=parent, custom_job=custom_job)
+          logging.info(f"response: {response}")
+          training_job_id = response.name.split('/')[-1]
 
           TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
-
-          return TrainOutput(response=response.stdout.decode(), job_name=job_name)
+          return TrainOutput(response=response, job_name=training_job_id)
 
       def _serialize_str(str_value: str) -> str:
           if not isinstance(str_value, str):
@@ -107,17 +115,22 @@ implementation:
 
       import argparse
       _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser.add_argument("--project-id", dest="project_id", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--n-classes", dest="n_classes", type=int, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--n-estimators", dest="n_estimators", type=int, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--max-depth", dest="max_depth", type=int, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--booster", dest="booster", type=str, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--config-yaml", dest="config_yaml", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--package-uri", dest="package_uri", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--executor-image-uri", dest="executor_image_uri", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
       _parsed_args = vars(_parser.parse_args())
       _output_files = _parsed_args.pop("_output_paths", [])
@@ -139,14 +152,16 @@ implementation:
           with open(output_file, 'w') as f:
               f.write(_output_serializers[idx](_outputs[idx]))
     args:
+    - --project-id
+    - {inputValue: project_id}
+    - --region
+    - {inputValue: region}
     - --job-name
     - {inputValue: job_name}
     - --bucket-name
     - {inputValue: bucket_name}
     - --job-folder-name
     - {inputValue: job_folder_name}
-    - --region
-    - {inputValue: region}
     - --train-feature-path
     - {inputValue: train_feature_path}
     - --train-label-path
@@ -159,11 +174,28 @@ implementation:
     - {inputValue: max_depth}
     - --booster
     - {inputValue: booster}
+    - --package-uri
+    - {inputValue: package_uri}
     - if:
-        cond: {isPresent: config_yaml}
+        cond: {isPresent: executor_image_uri}
         then:
-        - --config-yaml
-        - {inputValue: config_yaml}
+        - --executor-image-uri
+        - {inputValue: executor_image_uri}
+    - if:
+        cond: {isPresent: python_module}
+        then:
+        - --python-module
+        - {inputValue: python_module}
+    - if:
+        cond: {isPresent: api_endpoint}
+        then:
+        - --api-endpoint
+        - {inputValue: api_endpoint}
+    - if:
+        cond: {isPresent: machine_type}
+        then:
+        - --machine-type
+        - {inputValue: machine_type}
     - '----output-paths'
     - {outputPath: response}
     - {outputPath: job_name}

@@ -1,8 +1,8 @@
-name: Get hpt job status
+name: Get job status
 inputs:
 - {name: project_id, type: String}
 - {name: region, type: String}
-- {name: hpt_job_name, type: String}
+- {name: job_name, type: String}
 - {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
   optional: true}
 - {name: time_out, type: Integer, default: '9000', optional: true}
@@ -21,7 +21,7 @@ implementation:
       program_path=$(mktemp)
       printf "%s" "$0" > "$program_path"
       python3 -u "$program_path" "$@"
-    - "def get_hpt_job_status(\n        project_id,\n        region,\n        hpt_job_name,\n\
+    - "def get_job_status(\n        project_id,\n        region,\n        job_name,\n\
       \        api_endpoint = \"us-central1-aiplatform.googleapis.com\",\n       \
       \ time_out = 9000, # timeout after 2.5 hours by default\n        time_sleep\
       \ = 60, # check status every minute by default\n    ):\n\n    from collections\
@@ -29,43 +29,34 @@ implementation:
       \    import logging\n\n    time0 = time.time()\n    status = False\n\n    while\
       \ time.time() - time0 < time_out:    \n        client_options = {\"api_endpoint\"\
       : api_endpoint}\n        client = aiplatform.gapic.JobServiceClient(client_options=client_options)\n\
-      \        name = client.hyperparameter_tuning_job_path(\n            project=project_id,\n\
-      \            location=region,\n            hyperparameter_tuning_job=hpt_job_name,\n\
-      \        )\n        response = client.get_hyperparameter_tuning_job(name=name)\n\
-      \        logging.info(f\"response: {response}\")\n\n        if 'state' in response\
-      \ and \"JobState.JOB_STATE_SUCCEEDED\" == str(response.state):\n           \
-      \ status = True\n            break\n        else:\n            logging.info(\"\
-      Checking status ...\")\n            logging.info(response)\n            time.sleep(time_sleep)\n\
-      \n    if not status:\n        raise TimeoutError(\"No successful job found.\
-      \ Timeout after {} seconds\".format(time_out))\n\n    max_ind = 0\n    max_val\
-      \ = 0\n    for ind, trials in enumerate(response.trials):\n        value = trials.final_measurement.metrics[0].value\n\
-      \        logging.info(f\"Metrics Value (larger is better): {value}\")\n    \
-      \    if value > max_val:\n            max_val = value\n            max_ind =\
-      \ ind\n\n    param_dict = {}\n    for params in response.trials[max_ind].parameters:\n\
-      \        param_dict[params.parameter_id] = params.value\n\n    booster=param_dict['booster']\n\
-      \    max_depth=str(int(param_dict['max_depth']))\n    n_estimators=str(int(param_dict['n_estimators']))\n\
-      \n    logging.info(f\"booster {booster}\")\n    logging.info(f\"max_depth {max_depth}\"\
-      )\n    logging.info(f\"n_estimators {n_estimators}\")\n\n    Ghp_Output = namedtuple('Ghp_Output',['booster',\
-      \ 'max_depth', 'n_estimators'])\n    return Ghp_Output(booster=booster, max_depth=max_depth,\
-      \ n_estimators=n_estimators )        \n\ndef _serialize_int(int_value: int)\
-      \ -> str:\n    if isinstance(int_value, str):\n        return int_value\n  \
-      \  if not isinstance(int_value, int):\n        raise TypeError('Value \"{}\"\
-      \ has type \"{}\" instead of int.'.format(str(int_value), str(type(int_value))))\n\
-      \    return str(int_value)\n\ndef _serialize_str(str_value: str) -> str:\n \
-      \   if not isinstance(str_value, str):\n        raise TypeError('Value \"{}\"\
-      \ has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
+      \        name = client.custom_job_path(\n            project=project_id,\n \
+      \           location=region,\n            custom_job=job_name,\n        )\n\
+      \        response = client.get_custom_job(name=name)\n        logging.info(f\"\
+      response: {response}\")\n\n        if 'state' in response and \"JobState.JOB_STATE_SUCCEEDED\"\
+      \ == str(response.state):\n            status = True\n            break\n  \
+      \      else:\n            logging.info(\"Checking status ...\")\n          \
+      \  logging.info(response)\n            time.sleep(time_sleep)\n\n    if not\
+      \ status:\n        raise TimeoutError(\"No successful job found. Timeout after\
+      \ {} seconds\".format(time_out))\n\n    LRO_Output = namedtuple('LRO_Output',['response',\
+      \ 'status'])\n    return LRO_Output(response=response, status=status)      \
+      \  \n\ndef _serialize_int(int_value: int) -> str:\n    if isinstance(int_value,\
+      \ str):\n        return int_value\n    if not isinstance(int_value, int):\n\
+      \        raise TypeError('Value \"{}\" has type \"{}\" instead of int.'.format(str(int_value),\
+      \ str(type(int_value))))\n    return str(int_value)\n\ndef _serialize_str(str_value:\
+      \ str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError('Value\
+      \ \"{}\" has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
       \    return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
-      \ hpt job status', description='')\n_parser.add_argument(\"--project-id\", dest=\"\
+      \ job status', description='')\n_parser.add_argument(\"--project-id\", dest=\"\
       project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --region\", dest=\"region\", type=str, required=True, default=argparse.SUPPRESS)\n\
-      _parser.add_argument(\"--hpt-job-name\", dest=\"hpt_job_name\", type=str, required=True,\
+      _parser.add_argument(\"--job-name\", dest=\"job_name\", type=str, required=True,\
       \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--api-endpoint\", dest=\"\
       api_endpoint\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --time-out\", dest=\"time_out\", type=int, required=False, default=argparse.SUPPRESS)\n\
       _parser.add_argument(\"--time-sleep\", dest=\"time_sleep\", type=int, required=False,\
       \ default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"\
       _output_paths\", type=str, nargs=3)\n_parsed_args = vars(_parser.parse_args())\n\
-      _output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_hpt_job_status(**_parsed_args)\n\
+      _output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_job_status(**_parsed_args)\n\
       \n_output_serializers = [\n    _serialize_str,\n    _serialize_int,\n    _serialize_int,\n\
       \n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n\
       \        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n  \
@@ -75,8 +66,8 @@ implementation:
     - {inputValue: project_id}
     - --region
     - {inputValue: region}
-    - --hpt-job-name
-    - {inputValue: hpt_job_name}
+    - --job-name
+    - {inputValue: job_name}
     - if:
         cond: {isPresent: api_endpoint}
         then:
