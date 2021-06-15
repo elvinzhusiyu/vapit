@@ -2,13 +2,12 @@ name: Get job status
 inputs:
 - {name: project_id, type: String}
 - {name: region, type: String}
-- {name: job_name, type: String}
+- {name: ct_job_name, type: String}
 - {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
   optional: true}
 - {name: time_out, type: Integer, default: '9000', optional: true}
 - {name: time_sleep, type: Integer, default: '60', optional: true}
 outputs:
-- {name: response, type: String}
 - {name: status, type: Boolean}
 implementation:
   container:
@@ -20,7 +19,7 @@ implementation:
       program_path=$(mktemp)
       printf "%s" "$0" > "$program_path"
       python3 -u "$program_path" "$@"
-    - "def get_job_status(\n        project_id,\n        region,\n        job_name,\n\
+    - "def get_job_status(\n        project_id,\n        region,\n        ct_job_name,\n\
       \        api_endpoint = \"us-central1-aiplatform.googleapis.com\",\n       \
       \ time_out = 9000, # timeout after 2.5 hours by default\n        time_sleep\
       \ = 60, # check status every minute by default\n    ):\n\n    from collections\
@@ -29,44 +28,41 @@ implementation:
       \ time.time() - time0 < time_out:    \n        client_options = {\"api_endpoint\"\
       : api_endpoint}\n        client = aiplatform.gapic.JobServiceClient(client_options=client_options)\n\
       \        name = client.custom_job_path(\n            project=project_id,\n \
-      \           location=region,\n            custom_job=job_name,\n        )\n\
+      \           location=region,\n            custom_job=ct_job_name,\n        )\n\
       \        response = client.get_custom_job(name=name)\n        logging.info(f\"\
       response: {response}\")\n\n        if 'state' in response and \"JobState.JOB_STATE_SUCCEEDED\"\
       \ == str(response.state):\n            status = True\n            break\n  \
       \      else:\n            logging.info(\"Checking status ...\")\n          \
       \  logging.info(response)\n            time.sleep(time_sleep)\n\n    if not\
       \ status:\n        raise TimeoutError(\"No successful job found. Timeout after\
-      \ {} seconds\".format(time_out))\n\n    Gct_Output = namedtuple('Gct_Output',['response',\
-      \ 'status'])\n    return Gct_Output(response=response, status=status)      \
-      \  \n\ndef _serialize_bool(bool_value: bool) -> str:\n    if isinstance(bool_value,\
-      \ str):\n        return bool_value\n    if not isinstance(bool_value, bool):\n\
-      \        raise TypeError('Value \"{}\" has type \"{}\" instead of bool.'.format(str(bool_value),\
-      \ str(type(bool_value))))\n    return str(bool_value)\n\ndef _serialize_str(str_value:\
-      \ str) -> str:\n    if not isinstance(str_value, str):\n        raise TypeError('Value\
-      \ \"{}\" has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
-      \    return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
+      \ {} seconds\".format(time_out))\n\n    Gct_Output = namedtuple('Gct_Output',['status'])\n\
+      \    return Gct_Output(status=status)        \n\ndef _serialize_bool(bool_value:\
+      \ bool) -> str:\n    if isinstance(bool_value, str):\n        return bool_value\n\
+      \    if not isinstance(bool_value, bool):\n        raise TypeError('Value \"\
+      {}\" has type \"{}\" instead of bool.'.format(str(bool_value), str(type(bool_value))))\n\
+      \    return str(bool_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
       \ job status', description='')\n_parser.add_argument(\"--project-id\", dest=\"\
       project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --region\", dest=\"region\", type=str, required=True, default=argparse.SUPPRESS)\n\
-      _parser.add_argument(\"--job-name\", dest=\"job_name\", type=str, required=True,\
+      _parser.add_argument(\"--ct-job-name\", dest=\"ct_job_name\", type=str, required=True,\
       \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--api-endpoint\", dest=\"\
       api_endpoint\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
       --time-out\", dest=\"time_out\", type=int, required=False, default=argparse.SUPPRESS)\n\
       _parser.add_argument(\"--time-sleep\", dest=\"time_sleep\", type=int, required=False,\
       \ default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"\
-      _output_paths\", type=str, nargs=2)\n_parsed_args = vars(_parser.parse_args())\n\
+      _output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n\
       _output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_job_status(**_parsed_args)\n\
-      \n_output_serializers = [\n    _serialize_str,\n    _serialize_bool,\n\n]\n\n\
-      import os\nfor idx, output_file in enumerate(_output_files):\n    try:\n   \
-      \     os.makedirs(os.path.dirname(output_file))\n    except OSError:\n     \
-      \   pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+      \n_output_serializers = [\n    _serialize_bool,\n\n]\n\nimport os\nfor idx,\
+      \ output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n\
+      \    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n\
+      \        f.write(_output_serializers[idx](_outputs[idx]))\n"
     args:
     - --project-id
     - {inputValue: project_id}
     - --region
     - {inputValue: region}
-    - --job-name
-    - {inputValue: job_name}
+    - --ct-job-name
+    - {inputValue: ct_job_name}
     - if:
         cond: {isPresent: api_endpoint}
         then:
@@ -83,5 +79,4 @@ implementation:
         - --time-sleep
         - {inputValue: time_sleep}
     - '----output-paths'
-    - {outputPath: response}
     - {outputPath: status}
