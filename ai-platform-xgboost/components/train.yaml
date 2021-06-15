@@ -7,9 +7,9 @@ inputs:
 - {name: job_folder_name, type: String}
 - {name: train_feature_path, type: String}
 - {name: train_label_path, type: String}
-- {name: n_classes, type: Integer}
-- {name: n_estimators, type: Integer}
-- {name: max_depth, type: Integer}
+- {name: n_classes, type: String}
+- {name: n_estimators, type: String}
+- {name: max_depth, type: String}
 - {name: booster, type: String}
 - {name: package_uri, type: String}
 - {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
@@ -19,11 +19,10 @@ inputs:
   optional: true}
 - {name: machine_type, type: String, default: n1-standard-4, optional: true}
 outputs:
-- {name: response, type: String}
-- {name: job_name, type: String}
+- {name: ct_job_name, type: String}
 implementation:
   container:
-    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
+    image: gcr.io/img-seg-3d/vertex_base@sha256:2862b83c8b1fd32afddd6be49934f43586ed32c08988a57bb3cef65f5afed750
     command:
     - sh
     - -ec
@@ -87,26 +86,26 @@ implementation:
                                 '--train_label_name',
                                 train_label_path,
                                 '--no_classes',
-                                n_classes,
+                                str(n_classes),
                                 '--n_estimators',
-                                n_estimators,
+                                str(n_estimators),
                                 '--max_depth',
-                                max_depth,
+                                str(max_depth),
                                 '--booster',
-                                booster
+                                str(booster)
                               ],
                           },
                       }
                   ]
               },
           }
-          parent = f"projects/{project_id}/locations/{regino}"
+          parent = f"projects/{project_id}/locations/{region}"
           response = client.create_custom_job(parent=parent, custom_job=custom_job)
           logging.info(f"response: {response}")
           training_job_id = response.name.split('/')[-1]
 
-          TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
-          return TrainOutput(response=response, job_name=training_job_id)
+          TrainOutput = namedtuple('TrainOutput',['ct_job_name'])
+          return TrainOutput(ct_job_name=training_job_id)
 
       def _serialize_str(str_value: str) -> str:
           if not isinstance(str_value, str):
@@ -122,23 +121,22 @@ implementation:
       _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-classes", dest="n_classes", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-estimators", dest="n_estimators", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--max-depth", dest="max_depth", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-classes", dest="n_classes", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-estimators", dest="n_estimators", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--max-depth", dest="max_depth", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--booster", dest="booster", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--package-uri", dest="package_uri", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--executor-image-uri", dest="executor_image_uri", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
-      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
       _parsed_args = vars(_parser.parse_args())
       _output_files = _parsed_args.pop("_output_paths", [])
 
       _outputs = train(**_parsed_args)
 
       _output_serializers = [
-          _serialize_str,
           _serialize_str,
 
       ]
@@ -197,5 +195,4 @@ implementation:
         - --machine-type
         - {inputValue: machine_type}
     - '----output-paths'
-    - {outputPath: response}
-    - {outputPath: job_name}
+    - {outputPath: ct_job_name}

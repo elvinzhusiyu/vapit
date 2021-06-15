@@ -9,23 +9,22 @@ inputs:
 - {name: train_label_path, type: String}
 - {name: val_feature_path, type: String}
 - {name: val_label_path, type: String}
-- {name: n_classes, type: Integer}
+- {name: n_classes, type: String}
 - {name: metric_id, type: String}
 - {name: max_trial_count, type: Integer}
 - {name: parallel_trial_count, type: Integer}
 - {name: package_uri, type: String}
 - {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
   optional: true}
-- {name: python_module, type: String, default: trainer.train, optional: true}
+- {name: python_module, type: String, default: trainer.train_hpt, optional: true}
 - {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
   optional: true}
 - {name: machine_type, type: String, default: n1-standard-4, optional: true}
 outputs:
-- {name: response, type: String}
 - {name: job_name, type: String}
 implementation:
   container:
-    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
+    image: gcr.io/img-seg-3d/vertex_base@sha256:2862b83c8b1fd32afddd6be49934f43586ed32c08988a57bb3cef65f5afed750
     command:
     - sh
     - -ec
@@ -50,7 +49,7 @@ implementation:
               parallel_trial_count,
               package_uri,
               executor_image_uri = 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
-              python_module = "trainer.train",
+              python_module = "trainer.train_hpt",
               api_endpoint = "us-central1-aiplatform.googleapis.com",
               machine_type = "n1-standard-4",
           ):
@@ -71,12 +70,14 @@ implementation:
           # Initialize client that will be used to create and send requests.
           # This client only needs to be created once, and can be reused for multiple requests.
           client = aiplatform.gapic.JobServiceClient(client_options=client_options)
+          print(client)
 
           # study_spec
           metric = {
               "metric_id": metric_id,
               "goal": aiplatform.gapic.StudySpec.MetricSpec.GoalType.MAXIMIZE,
           }
+          print(metric)
 
           max_depth = {
                   "parameter_id": "max_depth",
@@ -116,7 +117,7 @@ implementation:
                       '--val_label_name',
                       val_label_path,
                       '--no_classes',
-                      n_classes,
+                      str(n_classes),
                   ],
               },
           }
@@ -132,15 +133,18 @@ implementation:
               },
               "trial_job_spec": {"worker_pool_specs": [worker_pool_spec]},
           }
+          print(hyperparameter_tuning_job)
+
           parent = f"projects/{project_id}/locations/{region}"
           response = client.create_hyperparameter_tuning_job(
               parent=parent, hyperparameter_tuning_job=hyperparameter_tuning_job
           )
+          print(response)
           logging.info(f"response: {response}")
           hpt_job_name = response.name.split('/')[-1]
 
-          TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
-          return TrainOutput(response=response, job_name=hpt_job_name)
+          TrainOutput = namedtuple('TrainOutput',['job_name'])
+          return TrainOutput(job_name=hpt_job_name)
 
       def _serialize_str(str_value: str) -> str:
           if not isinstance(str_value, str):
@@ -158,7 +162,7 @@ implementation:
       _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--val-feature-path", dest="val_feature_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--val-label-path", dest="val_label_path", type=str, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-classes", dest="n_classes", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-classes", dest="n_classes", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--metric-id", dest="metric_id", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--max-trial-count", dest="max_trial_count", type=int, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--parallel-trial-count", dest="parallel_trial_count", type=int, required=True, default=argparse.SUPPRESS)
@@ -167,14 +171,13 @@ implementation:
       _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
-      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
       _parsed_args = vars(_parser.parse_args())
       _output_files = _parsed_args.pop("_output_paths", [])
 
       _outputs = hypertune(**_parsed_args)
 
       _output_serializers = [
-          _serialize_str,
           _serialize_str,
 
       ]
@@ -237,5 +240,4 @@ implementation:
         - --machine-type
         - {inputValue: machine_type}
     - '----output-paths'
-    - {outputPath: response}
     - {outputPath: job_name}
