@@ -19,11 +19,10 @@ inputs:
   optional: true}
 - {name: machine_type, type: String, default: n1-standard-4, optional: true}
 outputs:
-- {name: response, type: String}
 - {name: job_name, type: String}
 implementation:
   container:
-    image: gcr.io/img-seg-3d/vertex_base@sha256:3609fa8d584cbf97d071de3028b3b92d87c901726927e8a4ebb6ff5d9fff87a3
+    image: gcr.io/img-seg-3d/vertex_base@sha256:2862b83c8b1fd32afddd6be49934f43586ed32c08988a57bb3cef65f5afed750
     command:
     - sh
     - -ec
@@ -105,8 +104,8 @@ implementation:
           logging.info(f"response: {response}")
           training_job_id = response.name.split('/')[-1]
 
-          TrainOutput = namedtuple('TrainOutput',['response', 'job_name'])
-          return TrainOutput(response=response, job_name=training_job_id)
+          TrainOutput = namedtuple('TrainOutput',['job_name'])
+          return TrainOutput(job_name=training_job_id)
 
       def _serialize_str(str_value: str) -> str:
           if not isinstance(str_value, str):
@@ -131,14 +130,13 @@ implementation:
       _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
       _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
-      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=2)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
       _parsed_args = vars(_parser.parse_args())
       _output_files = _parsed_args.pop("_output_paths", [])
 
       _outputs = train(**_parsed_args)
 
       _output_serializers = [
-          _serialize_str,
           _serialize_str,
 
       ]
@@ -197,5 +195,4 @@ implementation:
         - --machine-type
         - {inputValue: machine_type}
     - '----output-paths'
-    - {outputPath: response}
     - {outputPath: job_name}

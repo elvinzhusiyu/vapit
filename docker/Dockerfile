@@ -4,4 +4,5 @@ COPY ./requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install google-cloud-aiplatform && \
     pip install google-cloud-storage==1.32 && \
-    pip install grpcio==1.38.0
+    pip install grpcio==1.38.0 && \
+    pip install --upgrade google-auth 
