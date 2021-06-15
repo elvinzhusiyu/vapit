@@ -7,9 +7,9 @@ inputs:
 - {name: job_folder_name, type: String}
 - {name: train_feature_path, type: String}
 - {name: train_label_path, type: String}
-- {name: n_classes, type: Integer}
-- {name: n_estimators, type: Integer}
-- {name: max_depth, type: Integer}
+- {name: n_classes, type: String}
+- {name: n_estimators, type: String}
+- {name: max_depth, type: String}
 - {name: booster, type: String}
 - {name: package_uri, type: String}
 - {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
@@ -23,7 +23,7 @@ outputs:
 - {name: job_name, type: String}
 implementation:
   container:
-    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
+    image: gcr.io/img-seg-3d/vertex_base@sha256:3609fa8d584cbf97d071de3028b3b92d87c901726927e8a4ebb6ff5d9fff87a3
     command:
     - sh
     - -ec
@@ -87,13 +87,13 @@ implementation:
                                 '--train_label_name',
                                 train_label_path,
                                 '--no_classes',
-                                n_classes,
+                                str(n_classes),
                                 '--n_estimators',
-                                n_estimators,
+                                str(n_estimators),
                                 '--max_depth',
-                                max_depth,
+                                str(max_depth),
                                 '--booster',
-                                booster
+                                str(booster)
                               ],
                           },
                       }
@@ -122,9 +122,9 @@ implementation:
       _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-classes", dest="n_classes", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--n-estimators", dest="n_estimators", type=int, required=True, default=argparse.SUPPRESS)
-      _parser.add_argument("--max-depth", dest="max_depth", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-classes", dest="n_classes", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-estimators", dest="n_estimators", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--max-depth", dest="max_depth", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--booster", dest="booster", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--package-uri", dest="package_uri", type=str, required=True, default=argparse.SUPPRESS)
       _parser.add_argument("--executor-image-uri", dest="executor_image_uri", type=str, required=False, default=argparse.SUPPRESS)

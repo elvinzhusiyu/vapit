@@ -10,7 +10,7 @@ outputs:
 - {name: model_id, type: String}
 implementation:
   container:
-    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
+    image: gcr.io/img-seg-3d/vertex_base@sha256:3609fa8d584cbf97d071de3028b3b92d87c901726927e8a4ebb6ff5d9fff87a3
     command:
     - sh
     - -ec

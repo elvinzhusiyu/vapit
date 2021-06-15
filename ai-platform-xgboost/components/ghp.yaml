@@ -9,11 +9,11 @@ inputs:
 - {name: time_sleep, type: Integer, default: '60', optional: true}
 outputs:
 - {name: booster, type: String}
-- {name: max_depth, type: Integer}
-- {name: n_estimators, type: Integer}
+- {name: max_depth, type: String}
+- {name: n_estimators, type: String}
 implementation:
   container:
-    image: us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest
+    image: gcr.io/img-seg-3d/vertex_base@sha256:3609fa8d584cbf97d071de3028b3b92d87c901726927e8a4ebb6ff5d9fff87a3
     command:
     - sh
     - -ec
@@ -46,30 +46,27 @@ implementation:
       \    max_depth=str(int(param_dict['max_depth']))\n    n_estimators=str(int(param_dict['n_estimators']))\n\
       \n    logging.info(f\"booster {booster}\")\n    logging.info(f\"max_depth {max_depth}\"\
       )\n    logging.info(f\"n_estimators {n_estimators}\")\n\n    Ghp_Output = namedtuple('Ghp_Output',['booster',\
-      \ 'max_depth', 'n_estimators'])\n    return Ghp_Output(booster=booster, max_depth=max_depth,\
-      \ n_estimators=n_estimators )        \n\ndef _serialize_int(int_value: int)\
-      \ -> str:\n    if isinstance(int_value, str):\n        return int_value\n  \
-      \  if not isinstance(int_value, int):\n        raise TypeError('Value \"{}\"\
-      \ has type \"{}\" instead of int.'.format(str(int_value), str(type(int_value))))\n\
-      \    return str(int_value)\n\ndef _serialize_str(str_value: str) -> str:\n \
-      \   if not isinstance(str_value, str):\n        raise TypeError('Value \"{}\"\
-      \ has type \"{}\" instead of str.'.format(str(str_value), str(type(str_value))))\n\
-      \    return str_value\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Get\
-      \ hpt job status', description='')\n_parser.add_argument(\"--project-id\", dest=\"\
-      project_id\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
-      --region\", dest=\"region\", type=str, required=True, default=argparse.SUPPRESS)\n\
-      _parser.add_argument(\"--hpt-job-name\", dest=\"hpt_job_name\", type=str, required=True,\
-      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--api-endpoint\", dest=\"\
-      api_endpoint\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
-      --time-out\", dest=\"time_out\", type=int, required=False, default=argparse.SUPPRESS)\n\
-      _parser.add_argument(\"--time-sleep\", dest=\"time_sleep\", type=int, required=False,\
-      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"\
-      _output_paths\", type=str, nargs=3)\n_parsed_args = vars(_parser.parse_args())\n\
-      _output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_hpt_job_status(**_parsed_args)\n\
-      \n_output_serializers = [\n    _serialize_str,\n    _serialize_int,\n    _serialize_int,\n\
-      \n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n\
-      \        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n  \
-      \      pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+      \ 'max_depth', 'n_estimators'])\n    return Ghp_Output(booster=str(booster),\
+      \ max_depth=str(max_depth), n_estimators=str(n_estimators) )        \n\ndef\
+      \ _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value, str):\n\
+      \        raise TypeError('Value \"{}\" has type \"{}\" instead of str.'.format(str(str_value),\
+      \ str(type(str_value))))\n    return str_value\n\nimport argparse\n_parser =\
+      \ argparse.ArgumentParser(prog='Get hpt job status', description='')\n_parser.add_argument(\"\
+      --project-id\", dest=\"project_id\", type=str, required=True, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--region\", dest=\"region\", type=str, required=True,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--hpt-job-name\", dest=\"\
+      hpt_job_name\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      --api-endpoint\", dest=\"api_endpoint\", type=str, required=False, default=argparse.SUPPRESS)\n\
+      _parser.add_argument(\"--time-out\", dest=\"time_out\", type=int, required=False,\
+      \ default=argparse.SUPPRESS)\n_parser.add_argument(\"--time-sleep\", dest=\"\
+      time_sleep\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"\
+      ----output-paths\", dest=\"_output_paths\", type=str, nargs=3)\n_parsed_args\
+      \ = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\"\
+      , [])\n\n_outputs = get_hpt_job_status(**_parsed_args)\n\n_output_serializers\
+      \ = [\n    _serialize_str,\n    _serialize_str,\n    _serialize_str,\n\n]\n\n\
+      import os\nfor idx, output_file in enumerate(_output_files):\n    try:\n   \
+      \     os.makedirs(os.path.dirname(output_file))\n    except OSError:\n     \
+      \   pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
     args:
     - --project-id
     - {inputValue: project_id}
