@@ -1,0 +1,198 @@
+name: Train
+inputs:
+- {name: project_id, type: String}
+- {name: region, type: String}
+- {name: job_name, type: String}
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: train_feature_path, type: String}
+- {name: train_label_path, type: String}
+- {name: n_classes, type: String}
+- {name: n_estimators, type: String}
+- {name: max_depth, type: String}
+- {name: booster, type: String}
+- {name: package_uri, type: String}
+- {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+  optional: true}
+- {name: python_module, type: String, default: trainer.train, optional: true}
+- {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
+  optional: true}
+- {name: machine_type, type: String, default: n1-standard-4, optional: true}
+outputs:
+- {name: ct_job_name, type: String}
+implementation:
+  container:
+    image: gcr.io/img-seg-3d/vertex_base@sha256:2862b83c8b1fd32afddd6be49934f43586ed32c08988a57bb3cef65f5afed750
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def train(
+              project_id,
+              region,
+              job_name,
+              bucket_name,
+              job_folder_name,
+              train_feature_path,
+              train_label_path,
+              n_classes,
+              n_estimators,
+              max_depth,
+              booster,
+              package_uri,
+              executor_image_uri = 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+              python_module = "trainer.train",
+              api_endpoint = "us-central1-aiplatform.googleapis.com",
+              machine_type = "n1-standard-4",
+          ):
+
+          from collections import namedtuple
+          from google.cloud import aiplatform
+          import logging
+
+          job_dir = 'gs://{}/{}/{}'.format(
+              bucket_name,
+              job_folder_name,
+              job_name,
+              )
+
+          # The AI Platform services require regional API endpoints.
+          client_options = {"api_endpoint": api_endpoint}
+          # Initialize client that will be used to create and send requests.
+          # This client only needs to be created once, and can be reused for multiple requests.
+          client = aiplatform.gapic.JobServiceClient(client_options=client_options)
+          custom_job = {
+              "display_name": job_name,
+              "job_spec": {
+                  "worker_pool_specs": [
+                      {
+                          "machine_spec": {
+                              "machine_type": machine_type,
+                          },
+                          "replica_count": 1,
+                          "python_package_spec": {
+                              "executor_image_uri": executor_image_uri,
+                              "package_uris": [package_uri],
+                              "python_module": python_module,
+                              "args": [
+                                '--job-dir',
+                                job_dir,
+                                '--train_feature_name',
+                                train_feature_path,
+                                '--train_label_name',
+                                train_label_path,
+                                '--no_classes',
+                                str(n_classes),
+                                '--n_estimators',
+                                str(n_estimators),
+                                '--max_depth',
+                                str(max_depth),
+                                '--booster',
+                                str(booster)
+                              ],
+                          },
+                      }
+                  ]
+              },
+          }
+          parent = f"projects/{project_id}/locations/{region}"
+          response = client.create_custom_job(parent=parent, custom_job=custom_job)
+          logging.info(f"response: {response}")
+          training_job_id = response.name.split('/')[-1]
+
+          TrainOutput = namedtuple('TrainOutput',['ct_job_name'])
+          return TrainOutput(ct_job_name=training_job_id)
+
+      def _serialize_str(str_value: str) -> str:
+          if not isinstance(str_value, str):
+              raise TypeError('Value "{}" has type "{}" instead of str.'.format(str(str_value), str(type(str_value))))
+          return str_value
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Train', description='')
+      _parser.add_argument("--project-id", dest="project_id", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-classes", dest="n_classes", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-estimators", dest="n_estimators", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--max-depth", dest="max_depth", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--booster", dest="booster", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--package-uri", dest="package_uri", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--executor-image-uri", dest="executor_image_uri", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = train(**_parsed_args)
+
+      _output_serializers = [
+          _serialize_str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --project-id
+    - {inputValue: project_id}
+    - --region
+    - {inputValue: region}
+    - --job-name
+    - {inputValue: job_name}
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --train-feature-path
+    - {inputValue: train_feature_path}
+    - --train-label-path
+    - {inputValue: train_label_path}
+    - --n-classes
+    - {inputValue: n_classes}
+    - --n-estimators
+    - {inputValue: n_estimators}
+    - --max-depth
+    - {inputValue: max_depth}
+    - --booster
+    - {inputValue: booster}
+    - --package-uri
+    - {inputValue: package_uri}
+    - if:
+        cond: {isPresent: executor_image_uri}
+        then:
+        - --executor-image-uri
+        - {inputValue: executor_image_uri}
+    - if:
+        cond: {isPresent: python_module}
+        then:
+        - --python-module
+        - {inputValue: python_module}
+    - if:
+        cond: {isPresent: api_endpoint}
+        then:
+        - --api-endpoint
+        - {inputValue: api_endpoint}
+    - if:
+        cond: {isPresent: machine_type}
+        then:
+        - --machine-type
+        - {inputValue: machine_type}
+    - '----output-paths'
+    - {outputPath: ct_job_name}

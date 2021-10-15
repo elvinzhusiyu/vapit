@@ -1,0 +1,243 @@
+name: Hypertune
+inputs:
+- {name: project_id, type: String}
+- {name: region, type: String}
+- {name: job_name, type: String}
+- {name: bucket_name, type: String}
+- {name: job_folder_name, type: String}
+- {name: train_feature_path, type: String}
+- {name: train_label_path, type: String}
+- {name: val_feature_path, type: String}
+- {name: val_label_path, type: String}
+- {name: n_classes, type: String}
+- {name: metric_id, type: String}
+- {name: max_trial_count, type: Integer}
+- {name: parallel_trial_count, type: Integer}
+- {name: package_uri, type: String}
+- {name: executor_image_uri, type: String, default: 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+  optional: true}
+- {name: python_module, type: String, default: trainer.train_hpt, optional: true}
+- {name: api_endpoint, type: String, default: us-central1-aiplatform.googleapis.com,
+  optional: true}
+- {name: machine_type, type: String, default: n1-standard-4, optional: true}
+outputs:
+- {name: job_name, type: String}
+implementation:
+  container:
+    image: gcr.io/img-seg-3d/vertex_base@sha256:2862b83c8b1fd32afddd6be49934f43586ed32c08988a57bb3cef65f5afed750
+    command:
+    - sh
+    - -ec
+    - |
+      program_path=$(mktemp)
+      printf "%s" "$0" > "$program_path"
+      python3 -u "$program_path" "$@"
+    - |
+      def hypertune(
+              project_id,
+              region,
+              job_name,
+              bucket_name,
+              job_folder_name,
+              train_feature_path,
+              train_label_path,
+              val_feature_path,
+              val_label_path,
+              n_classes,
+              metric_id,
+              max_trial_count,
+              parallel_trial_count,
+              package_uri,
+              executor_image_uri = 'us-docker.pkg.dev/vertex-ai/training/tf-cpu.2-2:latest',
+              python_module = "trainer.train_hpt",
+              api_endpoint = "us-central1-aiplatform.googleapis.com",
+              machine_type = "n1-standard-4",
+          ):
+          from collections import namedtuple
+          from google.cloud import aiplatform
+          import subprocess
+          import logging
+
+          job_name = job_name + "_hpt"
+          job_dir = 'gs://{}/{}/{}'.format(
+              bucket_name,
+              job_folder_name,
+              job_name,
+              )
+
+          # The AI Platform services require regional API endpoints.
+          client_options = {"api_endpoint": api_endpoint}
+          # Initialize client that will be used to create and send requests.
+          # This client only needs to be created once, and can be reused for multiple requests.
+          client = aiplatform.gapic.JobServiceClient(client_options=client_options)
+          print(client)
+
+          # study_spec
+          metric = {
+              "metric_id": metric_id,
+              "goal": aiplatform.gapic.StudySpec.MetricSpec.GoalType.MAXIMIZE,
+          }
+          print(metric)
+
+          max_depth = {
+                  "parameter_id": "max_depth",
+                  "integer_value_spec": {"min_value": 2, "max_value": 20},
+                  "scale_type": aiplatform.gapic.StudySpec.ParameterSpec.ScaleType.UNIT_LINEAR_SCALE,
+          }
+          n_estimators = {
+                  "parameter_id": "n_estimators",
+                  "integer_value_spec": {"min_value": 10, "max_value": 200},
+                  "scale_type": aiplatform.gapic.StudySpec.ParameterSpec.ScaleType.UNIT_LINEAR_SCALE,
+          }
+          booster = {
+              "parameter_id": "booster",
+              "categorical_value_spec": {"values": ["gbtree","gblinear","dart"]},
+          }
+
+          # trial_job_spec
+          machine_spec = {
+              "machine_type": machine_type,
+          }
+          worker_pool_spec = {
+              "machine_spec": machine_spec,
+              "replica_count": 1,
+              "python_package_spec": {
+                  "executor_image_uri": executor_image_uri,
+                  "package_uris": [package_uri],
+                  "python_module": python_module,
+                  "args": [
+                      '--job-dir',
+                      job_dir,
+                      '--train_feature_name',
+                      train_feature_path,
+                      '--train_label_name',
+                      train_label_path,
+                      '--val_feature_name',
+                      val_feature_path,
+                      '--val_label_name',
+                      val_label_path,
+                      '--no_classes',
+                      str(n_classes),
+                  ],
+              },
+          }
+
+          # hyperparameter_tuning_job
+          hyperparameter_tuning_job = {
+              "display_name": job_name,
+              "max_trial_count": max_trial_count,
+              "parallel_trial_count": parallel_trial_count,
+              "study_spec": {
+                  "metrics": [metric],
+                  "parameters": [max_depth, n_estimators, booster],
+              },
+              "trial_job_spec": {"worker_pool_specs": [worker_pool_spec]},
+          }
+          print(hyperparameter_tuning_job)
+
+          parent = f"projects/{project_id}/locations/{region}"
+          response = client.create_hyperparameter_tuning_job(
+              parent=parent, hyperparameter_tuning_job=hyperparameter_tuning_job
+          )
+          print(response)
+          logging.info(f"response: {response}")
+          hpt_job_name = response.name.split('/')[-1]
+
+          TrainOutput = namedtuple('TrainOutput',['job_name'])
+          return TrainOutput(job_name=hpt_job_name)
+
+      def _serialize_str(str_value: str) -> str:
+          if not isinstance(str_value, str):
+              raise TypeError('Value "{}" has type "{}" instead of str.'.format(str(str_value), str(type(str_value))))
+          return str_value
+
+      import argparse
+      _parser = argparse.ArgumentParser(prog='Hypertune', description='')
+      _parser.add_argument("--project-id", dest="project_id", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--region", dest="region", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-name", dest="job_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--bucket-name", dest="bucket_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--job-folder-name", dest="job_folder_name", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-feature-path", dest="train_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--train-label-path", dest="train_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-feature-path", dest="val_feature_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--val-label-path", dest="val_label_path", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--n-classes", dest="n_classes", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--metric-id", dest="metric_id", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--max-trial-count", dest="max_trial_count", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--parallel-trial-count", dest="parallel_trial_count", type=int, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--package-uri", dest="package_uri", type=str, required=True, default=argparse.SUPPRESS)
+      _parser.add_argument("--executor-image-uri", dest="executor_image_uri", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--python-module", dest="python_module", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--api-endpoint", dest="api_endpoint", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("--machine-type", dest="machine_type", type=str, required=False, default=argparse.SUPPRESS)
+      _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+      _parsed_args = vars(_parser.parse_args())
+      _output_files = _parsed_args.pop("_output_paths", [])
+
+      _outputs = hypertune(**_parsed_args)
+
+      _output_serializers = [
+          _serialize_str,
+
+      ]
+
+      import os
+      for idx, output_file in enumerate(_output_files):
+          try:
+              os.makedirs(os.path.dirname(output_file))
+          except OSError:
+              pass
+          with open(output_file, 'w') as f:
+              f.write(_output_serializers[idx](_outputs[idx]))
+    args:
+    - --project-id
+    - {inputValue: project_id}
+    - --region
+    - {inputValue: region}
+    - --job-name
+    - {inputValue: job_name}
+    - --bucket-name
+    - {inputValue: bucket_name}
+    - --job-folder-name
+    - {inputValue: job_folder_name}
+    - --train-feature-path
+    - {inputValue: train_feature_path}
+    - --train-label-path
+    - {inputValue: train_label_path}
+    - --val-feature-path
+    - {inputValue: val_feature_path}
+    - --val-label-path
+    - {inputValue: val_label_path}
+    - --n-classes
+    - {inputValue: n_classes}
+    - --metric-id
+    - {inputValue: metric_id}
+    - --max-trial-count
+    - {inputValue: max_trial_count}
+    - --parallel-trial-count
+    - {inputValue: parallel_trial_count}
+    - --package-uri
+    - {inputValue: package_uri}
+    - if:
+        cond: {isPresent: executor_image_uri}
+        then:
+        - --executor-image-uri
+        - {inputValue: executor_image_uri}
+    - if:
+        cond: {isPresent: python_module}
+        then:
+        - --python-module
+        - {inputValue: python_module}
+    - if:
+        cond: {isPresent: api_endpoint}
+        then:
+        - --api-endpoint
+        - {inputValue: api_endpoint}
+    - if:
+        cond: {isPresent: machine_type}
+        then:
+        - --machine-type
+        - {inputValue: machine_type}
+    - '----output-paths'
+    - {outputPath: job_name}
